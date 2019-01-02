@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node index.js",
     "test": "npm run test-unit",
-    "test-unit": "mocha ./tests/*.spec.js"
+    "test-unit": "mocha --inspect-brk ./tests/*.spec.js"
   },
   "keywords": [
     "sfdx",

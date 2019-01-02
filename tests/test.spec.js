@@ -1,8 +1,13 @@
-const rewire = require('rewire');
-const fs = require('fs');
-const expect = require('chai').expect;
-const lib = require('../create-constants.js');
+process.env.NODE_ENV = 'test';
 
+const rewire = require('rewire');
+const sinon = require('sinon');
+const expect = require('chai').expect;
+const lib = rewire('../create-constants.js');
+
+afterEach(() => {
+	sinon.restore();
+})
 
 describe('test readArgs function', () => {
 	it('reads the dir flags', async () => {
@@ -69,5 +74,29 @@ describe('test readArgs function', () => {
 		let result = await Promise.all([lib.readArgs(args), lib.readArgs(args2)]);
 
 		expect(result[0]).to.eql(result[1]).and.to.eql({ignore: 'Account.Salutation'});
+	})
+})
+
+describe('test getRecordTypes function', () => {
+	const result = 
+	'Account                          a  PersonAccount\n' +
+	'Account                          b  Business_Account\n' +
+	'Product2                         c  Promotion\n' +
+	'Product2                         d  Other\n' +
+	'Total number of records retrieved: 4.';
+	const output = {err: null, stderr: null, stdout: result};
+	lib.__set__('exec', (cmd) => output);
+
+	it('should return a formed json object', async () => {
+		const result = await lib.getRecordTypes(null);
+
+		expect(result).to.be.an('object');
+	})
+
+	it('should return a json object with correct attributes', async () => {
+		debugger;
+		const result = await lib.getRecordTypes(null);
+		console.log(result);
+		expect(result).to.have.all.keys(['Account', 'Product2'])
 	})
 })

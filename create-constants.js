@@ -347,8 +347,23 @@ function jsonToApex(json) {
 	return output;
 }
 
-module.exports = {
+let exports = {
 	readArgs,
 	main,
 	output
 }
+
+if(process.env.NODE_ENV === 'test') {
+	Object.assign(exports, {
+		getRecordTypes,
+		getPicklistValues,
+		formatRecordTypes,
+		formatPicklistValues,
+		jsonToApex,
+		apexToJson,
+		picklistValuesToJson,
+		merge
+	});
+}
+
+module.exports = exports;
