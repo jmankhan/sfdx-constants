@@ -1,8 +1,9 @@
-/*
+ /*
 TODO: 
-merge with existing files (read and parse existing file)
-ignore specified <sobject.fields>
+- -merge with existing files (read and parse existing file) -- no longer doing this
+-- ignore specified <sobject.fields> -- done
 create a default preset
+preserve parts of file between rewrites
 write unit tests
 */
 
@@ -32,8 +33,10 @@ function readArgs(cliArgs) {
 					args['picklists'] = cliArgs[++i];
 				} else if(arg === '-r' || arg === '--recordtypes')  {
 					args['recordtypes'] = true;
-				} else if(arg === '-i' || arg === '--ignore') {
-					args['ignore'] = cliArgs[++i];
+				} else if(arg === '-m' || arg === '--merge') {
+					args['merge'] = true;
+				} else if(arg === '-ws' || arg === '--with-standard') {
+					args['with-standard'] = true;
 				} else {
 					throw new Error('Unknown flag ' + arg);
 				}
@@ -47,22 +50,23 @@ function readArgs(cliArgs) {
 }
 
 async function main(args) {
-	const result = {};
+	const json = {};
 	if(args['picklists']) {
-		result['picklists'] = await getPicklistValues(args);	
+		json['picklists'] = await getPicklistValues(args);	
 	}
 
 	if(args['recordtypes']) {
-		result['recordtypes'] = await getRecordTypes(args);
+		json['recordtypes'] = await getRecordTypes(args);
 	}
 	
-	return {args, result};
+	return {args, json};
 }
 
 
-async function output(args, json) {
-	const picklists = formatPicklistValues(args, json['picklists']);
-	const recordtypes = formatRecordTypes(args, json['recordtypes']);
+async function output({args, json}) {
+	filteredJson = await applyIgnore(json);
+	const picklists = formatPicklistValues(args, filteredJson['picklists']);
+	const recordtypes = formatRecordTypes(args, filteredJson['recordtypes']);
 
 	const className = args['name'] || 'Constants';
 	let output = `public class ${className} {\n`;
@@ -77,6 +81,10 @@ async function output(args, json) {
 	const formattedFilename = dir + className + '.cls';
 	const formattedMetaFilename = dir + className + '.cls-meta.xml';
 
+	if(args['merge'] && fs.existsSync(formattedFilename)) {
+		const original = readFileAsync(formattedFilename, {encoding: 'utf-8'});
+		output = merge(original, output);
+	}
 	await writeFileAsync(formattedFilename, output, 'utf-8');
 
 	const metaContents = await readFileAsync(metaTemplate, {encoding: 'utf-8'});
@@ -87,7 +95,7 @@ async function output(args, json) {
 }
 
 async function getRecordTypes(args) {
-	var recordTypeCommand = 'sfdx force:data:soql:query -q "SELECT SObjectType, Id, DeveloperName FROM RecordType ORDER BY SObjectType ASC"';
+	var recordTypeCommand = 'sfdx force:data:soql:query -q "SELECT SObjectType, Id, DeveloperName, Name FROM RecordType ORDER BY SObjectType ASC"';
 	const {err, stdout, stderr} = await exec(recordTypeCommand);
 	if(err) throw err;
 	const result = {};
@@ -97,10 +105,12 @@ async function getRecordTypes(args) {
 		const sobjecttype = row[0];
 		const id = row[1];
 		const devname = row[2];
+		const name = row.slice(3).reduce( (a, e) => a + ' ' + e);
 
 		const meta = {
 			'Id': id,
-			'DeveloperName': devname
+			'DeveloperName': devname,
+			'Name': name
 		};
 		result[sobjecttype] = result[sobjecttype] ? result[sobjecttype] : []; 
 		result[sobjecttype].push(meta);
@@ -117,33 +127,45 @@ async function getRecordTypes(args) {
 //note the --with-packages flag includes recordtypes from a package that may be installed in the org
 //packages are ignored by default
 function formatRecordTypes(args, json) {
+	if(!json) return '';
+
 	const withPackages = args['with-packages'] == true;
-	let output = '';
+	let declaration = '';
+	let output = '\n\tstatic {\n';
 
 	Object.keys(json).filter(type => {
 		return withPackages || !(type && type.match(/__/g) && type.match(/__/g).length > 1);
 	})
 	.sort()
 	.forEach(sobjecttype => {
-		output += `\t/* ${sobjecttype} RecordTypes */\n`;
+		output += `\t\t/* ${sobjecttype} RecordTypes */\n`;
 		const meta = json[sobjecttype]
 		.sort()
 		.forEach(record => {
-			const s = sobjecttype.toUpperCase();
+			const s = sobjecttype.toUpperCase().replace('__C', '');
 			const r = 'RECORDTYPE';
-			const d = record['DeveloperName'].toUpperCase();
+			const d = record['DeveloperName'].toUpperCase().replace('__C', '');
+			const n = record['Name'];
 			const i = record['Id'];
 
-			output += `\tpublic static final String ${s}_${r}_${d} = \'${i}\';\n`;
+			declaration += `\tpublic static String ${s}_${r}_${d};\n`;
+			output += `\t\t${s}_${r}_${d} = getObjectRecordTypeMap(\'${s}\').get(\'${n}\').RecordTypeId;\n`;
 		})
+		output += '\n';
 	})
 
-	return output;
+	output += '\t}\n';
+	output += '\tpublic static Map<String,Schema.RecordTypeInfo> getObjectRecordTypeMap(String objectName) {\n' +
+    	'\t\treturn Schema.getGlobalDescribe().get(objectName).getDescribe().getRecordTypeInfosByName();\n' +
+		'\t}\n';
+
+	return declaration + output;
 }
 
 async function getPicklistValues(args) {
 	const filename = 'queryPicklistValues.apex';
 	const formattedFilename = 'queryPicklistValues.temp.apex';
+	const withStandard = args['with-standard'] ? 'true' : 'false';
 
 	const sobjects = args['picklists'].split(',');
 	sobjects.forEach((s,i) => {
@@ -154,12 +176,12 @@ async function getPicklistValues(args) {
 
 	//populate which sobjects to retrieve fields for
 	const contents = await readFileAsync(filename, {encoding: 'utf-8'});
-	const result = contents.replace(/<sobjects>/g, sobjects);
+	const result = contents.replace(/<sobjects>/g, sobjects).replace(/<standardFields>/g, withStandard);
 	
 	await writeFileAsync(formattedFilename, result, 'utf-8')
 
 	const picklistCommand = `sfdx force:apex:execute -f ${formattedFilename}`;
-	const {execErr, stdout, stderr} = await exec(picklistCommand);
+	const {execErr, stdout, stderr} = await exec(picklistCommand, {maxBuffer: Infinity});
 	if(execErr) throw execErr;
 	const r = new RegExp(/USER_DEBUG\|.*?\|DEBUG\|(.*)/g);
 	const str = r.exec(stdout)[1];
@@ -173,6 +195,9 @@ async function getPicklistValues(args) {
 //LABEL = the label of the picklist value (e.g. Mr, note that special characters are stripped)
 //VALUE = the api name of the picklist value (e.g. Mr.)
 function formatPicklistValues(args, json) {
+	if(!json) {
+		return '';
+	}
 	let output = '';
 
 	Object.keys(json).forEach(typeKey => {
@@ -180,9 +205,9 @@ function formatPicklistValues(args, json) {
 		Object.keys(json[typeKey]).forEach(fieldKey => {
 			output += `\t/* ${fieldKey} Picklist Values */\n`;
 			json[typeKey][fieldKey].forEach(picklist => {
-				const s = typeKey.toUpperCase();
-				const f = fieldKey.toUpperCase();
-				const l = picklist['label'].toUpperCase().replace(' ', '_').replace(/\W/g, '');
+				const s = typeKey.toUpperCase().replace('__C', '');
+				const f = fieldKey.toUpperCase().replace('__C', '');
+				const l = picklist['label'].toUpperCase().replace(' ', '_').replace(/\W/g, '').replace('__C', '');
 				const v = picklist['value'];
 
 				output += `\tpublic static final String ${s}_${f}_${l} = \'${v}\';\n`;
@@ -240,7 +265,7 @@ function merge(original, updated) {
 }
 
 /*
- * expects a string of line delimited substrings that contain an apex variable definition
+ * expects the contents of an apex class file
  * converts this string to a json representation that is easy to manipulate
  * e.g. converts:
  * public static final String ACCOUNT_RECORDTYPE_PERSON_ACCOUNT = 'a00xx';
@@ -347,7 +372,33 @@ function jsonToApex(json) {
 	return output;
 }
 
-let exports = {
+async function applyIgnore(json) {
+	const filename = '.sfdx-constants-ignore';
+	if(!fs.existsSync(filename)) {
+		return Object.assign({}, json);
+	}
+	const ignoreList = await readFileAsync(filename, {encoding: 'utf-8'});
+
+	const clone = Object.assign({}, json);
+	ignoreList.split('\n').forEach(line => {
+		const sobject = line.split('.')[0];
+		let field = line.split('.')[1];
+
+		if(clone['recordtypes'].hasOwnProperty(sobject)) {
+			clone['recordtypes'][sobject] = clone['recordtypes'][sobject].filter(recordtype => recordtype.DeveloperName.toUpperCase() !== field.toUpperCase())
+		}
+
+		if(clone['picklists'].hasOwnProperty(sobject)) {
+			if(clone['picklists'][sobject].hasOwnProperty(field.trim().toLowerCase())) {
+				delete clone['picklists'][sobject][field.trim().toLowerCase()];
+			}
+		}
+	})
+
+	return clone;
+}
+
+exports = {
 	readArgs,
 	main,
 	output
