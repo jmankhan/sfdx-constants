@@ -1,12 +1,9 @@
  /*
-TODO: 
-- -merge with existing files (read and parse existing file) -- no longer doing this
--- ignore specified <sobject.fields> -- done
-create a default preset
-preserve parts of file between rewrites
-write unit tests
+ THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. 
+ IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, 
+ WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 */
-
+const path = require('path');
 const {promisify} = require('util');
 const fs = require('fs');
 const readFileAsync = promisify(fs.readFile);
@@ -81,17 +78,13 @@ async function output({args, json}) {
 	const formattedFilename = dir + className + '.cls';
 	const formattedMetaFilename = dir + className + '.cls-meta.xml';
 
-	if(args['merge'] && fs.existsSync(formattedFilename)) {
-		const original = readFileAsync(formattedFilename, {encoding: 'utf-8'});
-		output = merge(original, output);
-	}
 	await writeFileAsync(formattedFilename, output, 'utf-8');
 
-	const metaContents = await readFileAsync(metaTemplate, {encoding: 'utf-8'});
+	const metaContents = await readFileAsync(path.resolve(__dirname, metaTemplate), {encoding: 'utf-8'});
 	const sfdxProject = await readFileAsync('sfdx-project.json', {encoding: 'utf-8'});
 	const meta = metaContents.replace('<sfdx-version>', JSON.parse(sfdxProject).sourceApiVersion).replace('<sfdx-fqn>', className);
 
-	writeFileAsync(formattedMetaFilename, meta, 'utf-8');
+	await writeFileAsync(formattedMetaFilename, meta, 'utf-8');
 }
 
 async function getRecordTypes(args) {
@@ -175,7 +168,7 @@ async function getPicklistValues(args) {
 	});
 
 	//populate which sobjects to retrieve fields for
-	const contents = await readFileAsync(filename, {encoding: 'utf-8'});
+	const contents = await readFileAsync(path.resolve(__dirname, filename), {encoding: 'utf-8'});
 	const result = contents.replace(/<sobjects>/g, sobjects).replace(/<standardFields>/g, withStandard);
 	
 	await writeFileAsync(formattedFilename, result, 'utf-8')
@@ -377,7 +370,7 @@ async function applyIgnore(json) {
 	if(!fs.existsSync(filename)) {
 		return Object.assign({}, json);
 	}
-	const ignoreList = await readFileAsync(filename, {encoding: 'utf-8'});
+	const ignoreList = await readFileAsync(path.resolve(__dirname, filename), {encoding: 'utf-8'});
 
 	const clone = Object.assign({}, json);
 	ignoreList.split('\n').forEach(line => {

@@ -15,10 +15,16 @@ Run `npm install sfdx-constants` to install from npm registry
 |`-wp --with-packages`|Includes package recordtypes when generating recordtypes|
 |`-n --name <string>`|The output file and class name. Defaults to _Constants_|
 |`-h --help`|Help menu|
-|`-m --merge <filename>`|Merges the output with an existing file. Useful for existing projects or minimizing many line changes|
+|`-ws --with-standard`|Includes standard fields in the output. This is disabled by default, set this flag to enable it|
+
+You may include a `.sfdx-constants-ignore` with a line delimited, dot-notation string of an sobject and field to indicate any picklist values you wish to ignore.
+
+Example:
+`Account.PersonMailingStateCode`
+`Account.Custom_Field__c`
 
 ### Requirements
 Since this tool relies on sfdx the [sfdx-cli](https://developer.salesforce.com/tools/sfdxcli) tool is required to be installed. It is recommended that the script be run for development only and the output be checked into version control. There are no other dependencies required to run the tool.
 
-### Sane defaults
+### Sane defaults (coming soon)
 If no arguments are provided, the tool will run in 'sane default' mode, which will make assumptions about common coding patterns. It will generate all recordtypes, custom object picklist values, and custom picklist values on standard objects. 

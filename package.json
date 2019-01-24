@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node index.js",
     "test": "npm run test-unit",
-    "test-unit": "mocha --inspect-brk ./tests/*.spec.js"
+    "test-unit": "nyc mocha ./tests/*.spec.js"
   },
   "keywords": [
     "sfdx",
@@ -16,9 +16,12 @@
   ],
   "author": "Jalal Khan",
   "license": "ISC",
+  "homepage": "https://github.com/jmankhan/sfdx-constants",
+  "email": "jmankhan1@gmail.com",
   "devDependencies": {
     "chai": "^4.2.0",
     "mocha": "^5.2.0",
+    "nyc": "^13.1.0",
     "rewire": "^4.0.1",
     "sinon": "^7.2.2"
   }
