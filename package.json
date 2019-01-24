@@ -18,6 +18,9 @@
   "license": "ISC",
   "homepage": "https://github.com/jmankhan/sfdx-constants",
   "email": "jmankhan1@gmail.com",
+  "bin": {
+    "sfdx-constants": "./index.js"
+  },
   "devDependencies": {
     "chai": "^4.2.0",
     "mocha": "^5.2.0",
