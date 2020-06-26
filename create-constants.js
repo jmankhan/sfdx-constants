@@ -10,6 +10,9 @@ const readFileAsync = promisify(fs.readFile);
 const writeFileAsync = promisify(fs.writeFile);
 const exec = promisify(require('child_process').exec);
 
+/*
+* Reads the cli arguments that were passed in at program start
+*/
 function readArgs(cliArgs) {
 	return new Promise((resolve, reject) => {
 		const args = {};
@@ -48,6 +51,11 @@ function readArgs(cliArgs) {
 
 async function main(args) {
 	const json = {};
+
+	if(!fs.existsSync('sfdx-project.json')) {
+		throw new Error('sfdx-project.json not found in directory ' + __dirname);
+	}
+
 	if(args['picklists']) {
 		json['picklists'] = await getPicklistValues(args);	
 	}
@@ -66,7 +74,7 @@ async function output({args, json}) {
 	const recordtypes = formatRecordTypes(args, filteredJson['recordtypes']);
 
 	const className = args['name'] || 'Constants';
-	let output = `public class ${className} {\n`;
+    let output = `//Generated with sfdx-constants\npublic class ${className} {\n`;
 	output += recordtypes;
 	output += picklists;
 	output += '}';
@@ -132,17 +140,17 @@ function formatRecordTypes(args, json) {
 	.sort()
 	.forEach(sobjecttype => {
 		output += `\t\t/* ${sobjecttype} RecordTypes */\n`;
-		const meta = json[sobjecttype]
+        
+        json[sobjecttype]
 		.sort()
 		.forEach(record => {
 			const s = sobjecttype.toUpperCase().replace('__C', '');
 			const r = 'RECORDTYPE';
 			const d = record['DeveloperName'].toUpperCase().replace('__C', '');
 			const n = record['Name'];
-			const i = record['Id'];
 
 			declaration += `\tpublic static String ${s}_${r}_${d};\n`;
-			output += `\t\t${s}_${r}_${d} = getObjectRecordTypeMap(\'${s}\').get(\'${n}\').RecordTypeId;\n`;
+			output += `\t\t${s}_${r}_${d} = getObjectRecordTypeMap(\'${sobjecttype}\').get(\'${n}\').RecordTypeId;\n`;
 		})
 		output += '\n';
 	})
