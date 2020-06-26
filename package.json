@@ -1,31 +1,31 @@
 {
-  "name": "sfdx-constants",
-  "version": "1.1.0",
-  "description": "Generate apex code to describe commonly used constants like recordtypes and picklist values",
-  "main": "index.js",
-  "scripts": {
-    "start": "node index.js",
-    "test": "npm run test-unit",
-    "test-unit": "nyc mocha ./tests/*.spec.js"
-  },
-  "keywords": [
-    "sfdx",
-    "apex",
-    "automatic",
-    "programming"
-  ],
-  "author": "Jalal Khan",
-  "license": "ISC",
-  "homepage": "https://github.com/jmankhan/sfdx-constants",
-  "email": "jmankhan1@gmail.com",
-  "bin": {
-    "sfdx-constants": "./index.js"
-  },
-  "devDependencies": {
-    "chai": "^4.2.0",
-    "mocha": "^5.2.0",
-    "nyc": "^13.1.0",
-    "rewire": "^4.0.1",
-    "sinon": "^7.2.2"
-  }
+	"name": "sfdx-constants",
+	"version": "1.2.0",
+	"description": "Generate apex code to describe commonly used constants like recordtypes and picklist values",
+	"main": "index.js",
+	"scripts": {
+		"start": "node index.js",
+		"test": "npm run test-unit",
+		"test-unit": "nyc mocha ./tests/*.spec.js"
+	},
+	"keywords": [
+		"sfdx",
+		"apex",
+		"automatic",
+		"programming"
+	],
+	"author": "Jalal Khan",
+	"license": "ISC",
+	"homepage": "https://github.com/jmankhan/sfdx-constants",
+	"email": "jmankhan1@gmail.com",
+	"bin": {
+		"sfdx-constants": "./index.js"
+	},
+	"devDependencies": {
+		"chai": "^4.2.0",
+		"mocha": "^5.2.0",
+		"nyc": "^13.1.0",
+		"rewire": "^4.0.1",
+		"sinon": "^7.2.2"
+	}
 }
